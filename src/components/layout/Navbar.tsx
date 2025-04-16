@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { Button } from '../ui/button';
-import { ShoppingCart, User, LogOut } from 'lucide-react';
+import { ShoppingCart, User, LogOut, Package } from 'lucide-react';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -30,6 +30,11 @@ const Navbar = () => {
             <Link to="/products" className="text-sm font-medium transition-colors hover:text-primary">
               Products
             </Link>
+            {user && (
+              <Link to="/orders" className="text-sm font-medium transition-colors hover:text-primary">
+                My Orders
+              </Link>
+            )}
             {user?.isAdmin && (
               <Link to="/admin" className="text-sm font-medium transition-colors hover:text-primary">
                 Admin Dashboard
@@ -57,6 +62,13 @@ const Navbar = () => {
                   <User className="h-5 w-5" />
                 </Button>
               </Link>
+              {user && (
+                <Link to="/orders">
+                  <Button variant="ghost" size="icon">
+                    <Package className="h-5 w-5" />
+                  </Button>
+                </Link>
+              )}
               <Button variant="ghost" size="icon" onClick={handleLogout}>
                 <LogOut className="h-5 w-5" />
               </Button>

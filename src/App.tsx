@@ -20,6 +20,7 @@ import Home from "./pages/customer/Home";
 import ProductsPage from "./pages/customer/ProductsPage";
 import ProductDetail from "./pages/customer/ProductDetail";
 import Cart from "./pages/customer/Cart";
+import OrdersPage from "./pages/customer/Orders";
 
 // Auth Pages
 import Login from "./pages/auth/Login";
@@ -49,6 +50,7 @@ const App = () => (
                     <Route path="/products" element={<ProductsPage />} />
                     <Route path="/products/:id" element={<ProductDetail />} />
                     <Route path="/cart" element={<Cart />} />
+                    <Route path="/orders" element={<OrdersPage />} />
 
                     {/* Auth Routes */}
                     <Route path="/login" element={<Login />} />

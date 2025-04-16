@@ -31,12 +31,14 @@ import {
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Eye, Trash2, Search } from 'lucide-react';
+import { Eye, Trash2, Search, Package, Truck, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
+import { useToast } from '../../hooks/use-toast';
 import { Order } from '../../types';
 
 const OrdersManagement = () => {
   const { orders, updateOrderStatus, deleteOrder } = useOrders();
+  const { toast } = useToast();
   
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -51,6 +53,11 @@ const OrdersManagement = () => {
         ...currentOrder,
         status
       });
+      
+      toast({
+        title: "Order status updated",
+        description: `Order #${currentOrder.id} has been marked as ${status}.`,
+      });
     }
   };
   
@@ -60,6 +67,12 @@ const OrdersManagement = () => {
       deleteOrder(currentOrder.id);
       setIsDeleteDialogOpen(false);
       setCurrentOrder(null);
+      
+      toast({
+        title: "Order deleted",
+        description: `Order #${currentOrder.id} has been deleted.`,
+        variant: "destructive"
+      });
     }
   };
   
@@ -99,6 +112,24 @@ const OrdersManagement = () => {
         return 'default';
     }
   };
+
+  // Get status icon
+  const getStatusIcon = (status: Order['status']) => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="h-4 w-4 mr-1" />;
+      case 'processing':
+        return <Package className="h-4 w-4 mr-1" />;
+      case 'shipped':
+        return <Truck className="h-4 w-4 mr-1" />;
+      case 'delivered':
+        return <CheckCircle className="h-4 w-4 mr-1" />;
+      case 'cancelled':
+        return <XCircle className="h-4 w-4 mr-1" />;
+      default:
+        return null;
+    }
+  };
   
   return (
     <AdminLayout>
@@ -135,7 +166,8 @@ const OrdersManagement = () => {
                 <TableCell>{order.customerName}</TableCell>
                 <TableCell>{new Date(order.date).toLocaleDateString()}</TableCell>
                 <TableCell>
-                  <Badge variant={getStatusBadgeVariant(order.status)}>
+                  <Badge variant={getStatusBadgeVariant(order.status)} className="flex w-fit items-center">
+                    {getStatusIcon(order.status)}
                     {order.status}
                   </Badge>
                 </TableCell>
@@ -206,15 +238,25 @@ const OrdersManagement = () => {
                       defaultValue={currentOrder.status}
                       onValueChange={(value) => handleStatusChange(value as Order['status'])}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="processing">Processing</SelectItem>
-                        <SelectItem value="shipped">Shipped</SelectItem>
-                        <SelectItem value="delivered">Delivered</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectContent position="popper">
+                        <SelectItem value="pending" className="flex items-center">
+                          <Clock className="h-4 w-4 mr-2" /> Pending
+                        </SelectItem>
+                        <SelectItem value="processing" className="flex items-center">
+                          <Package className="h-4 w-4 mr-2" /> Processing
+                        </SelectItem>
+                        <SelectItem value="shipped" className="flex items-center">
+                          <Truck className="h-4 w-4 mr-2" /> Shipped
+                        </SelectItem>
+                        <SelectItem value="delivered" className="flex items-center">
+                          <CheckCircle className="h-4 w-4 mr-2" /> Delivered
+                        </SelectItem>
+                        <SelectItem value="cancelled" className="flex items-center">
+                          <XCircle className="h-4 w-4 mr-2" /> Cancelled
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
