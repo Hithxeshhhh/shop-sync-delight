@@ -7,9 +7,10 @@ type ProductGridProps = {
   products: Product[];
   category?: string;
   searchTerm?: string;
+  priceRange?: [number, number];
 };
 
-const ProductGrid = ({ products, category, searchTerm }: ProductGridProps) => {
+const ProductGrid = ({ products, category, searchTerm, priceRange = [0, 1000] }: ProductGridProps) => {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>(products);
   
   useEffect(() => {
@@ -29,8 +30,16 @@ const ProductGrid = ({ products, category, searchTerm }: ProductGridProps) => {
       );
     }
     
+    // Filter by price range
+    if (priceRange) {
+      const [minPrice, maxPrice] = priceRange;
+      result = result.filter(product => 
+        product.price >= minPrice && product.price <= maxPrice
+      );
+    }
+    
     setFilteredProducts(result);
-  }, [products, category, searchTerm]);
+  }, [products, category, searchTerm, priceRange]);
   
   if (filteredProducts.length === 0) {
     return (
