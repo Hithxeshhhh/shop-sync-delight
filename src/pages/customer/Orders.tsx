@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../contexts/OrderContext';
 import { Badge } from '../../components/ui/badge';
@@ -97,7 +98,9 @@ const OrdersPage = () => {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <h3 className="text-xl font-medium mb-2">Please log in to view your orders</h3>
             <p className="text-muted-foreground mb-4">You need to be logged in to see your order history</p>
-            <Button href="/login">Log In</Button>
+            <Button asChild>
+              <Link to="/login">Log In</Link>
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -186,7 +189,9 @@ const OrdersPage = () => {
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <h3 className="text-xl font-medium mb-2">No orders found</h3>
                 <p className="text-muted-foreground mb-4">You haven't placed any orders yet</p>
-                <Button href="/products">Start Shopping</Button>
+                <Button asChild>
+                  <Link to="/products">Start Shopping</Link>
+                </Button>
               </CardContent>
             </Card>
           )}
