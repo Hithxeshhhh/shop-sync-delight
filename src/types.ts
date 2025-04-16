@@ -5,6 +5,7 @@ export type Product = {
   description: string;
   price: number;
   image: string;
+  images?: string[]; // Added support for multiple images
   category: string;
   stock: number;
 };
