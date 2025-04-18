@@ -1,9 +1,13 @@
+import { Loader2, Package, Search, ShoppingBag } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { useAuth } from "../../contexts/AuthContext";
+import { cancelOrder, getUserOrders, searchOrders } from "../../lib/supabase-orders";
+import { Order, OrderItem } from "../../types";
 
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { useOrders } from '../../contexts/OrderContext';
-import { Badge } from '../../components/ui/badge';
 import {
   Card,
   CardContent,
@@ -25,23 +29,101 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '../../components/ui/accordion';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Package, Search, ShoppingBag } from 'lucide-react';
-import { Order } from '../../types';
 
 const OrdersPage = () => {
   const { user } = useAuth();
-  const { getCustomerOrders } = useOrders();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [orderItems, setOrderItems] = useState<Record<string, OrderItem[]>>({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   
-  // Get orders for the current user
-  const userOrders = user ? getCustomerOrders(user.id) : [];
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        setLoading(true);
+        const userOrders = await getUserOrders(user.id);
+        setOrders(userOrders);
+        
+        // Create a map of order items keyed by order ID
+        const itemsMap: Record<string, OrderItem[]> = {};
+        for (const order of userOrders) {
+          if (order.items) {
+            itemsMap[order.id] = order.items;
+          }
+        }
+        setOrderItems(itemsMap);
+      } catch (err) {
+        console.error('Error fetching orders:', err);
+        setError('Failed to load orders. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchOrders();
+  }, [user]);
   
-  // Filter orders based on search term
-  const filteredOrders = userOrders.filter(order => 
-    order.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    const handleSearch = async () => {
+      if (!user || !searchTerm.trim()) {
+        // If search is cleared, fetch all user orders
+        if (searchTerm === '' && user) {
+          try {
+            setLoading(true);
+            const userOrders = await getUserOrders(user.id);
+            setOrders(userOrders);
+          } catch (err) {
+            console.error('Error fetching orders:', err);
+            setError('Failed to load orders. Please try again later.');
+          } finally {
+            setLoading(false);
+          }
+        }
+        return;
+      }
+      
+      try {
+        setLoading(true);
+        // Use the searchOrders function with the search term
+        const searchResults = await searchOrders(searchTerm, 50, 0);
+        // Filter to only show the current user's orders
+        const filteredResults = searchResults.orders.filter(order => order.user_id === user.id);
+        setOrders(filteredResults);
+      } catch (err) {
+        console.error('Error searching orders:', err);
+        setError('Failed to search orders. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    // Use debounce to avoid too many API calls while typing
+    const debounceTimeout = setTimeout(handleSearch, 300);
+    return () => clearTimeout(debounceTimeout);
+  }, [searchTerm, user]);
+  
+  const handleCancelOrder = async (orderId: string) => {
+    try {
+      await cancelOrder(orderId);
+      // Update the local state to reflect the cancellation
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, status: 'cancelled' } 
+            : order
+        )
+      );
+    } catch (err) {
+      console.error('Error cancelling order:', err);
+      setError('Failed to cancel order. Please try again later.');
+    }
+  };
 
   // Get status badge color
   const getStatusBadgeVariant = (status: Order['status']) => {
@@ -117,23 +199,50 @@ const OrdersPage = () => {
             </div>
           </div>
 
-          {filteredOrders.length > 0 ? (
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Loading orders...</span>
+            </div>
+          ) : error ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <h3 className="text-xl font-medium mb-2 text-destructive">Error</h3>
+                <p className="text-muted-foreground mb-4">{error}</p>
+                <Button onClick={() => window.location.reload()}>
+                  Try Again
+                </Button>
+              </CardContent>
+            </Card>
+          ) : orders.length > 0 ? (
             <div className="space-y-6">
-              {filteredOrders.map((order) => (
+              {orders.map((order) => (
                 <Card key={order.id} className="overflow-hidden">
                   <CardHeader className="bg-muted/50">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                       <div>
                         <CardTitle className="text-lg">Order #{order.id}</CardTitle>
-                        <CardDescription>{formatDate(order.date)}</CardDescription>
+                        <CardDescription>{formatDate(order.created_at || '')}</CardDescription>
                       </div>
-                      <Badge 
-                        variant={getStatusBadgeVariant(order.status)}
-                        className="w-fit flex items-center"
-                      >
-                        {getStatusIcon(order.status)}
-                        {order.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant={getStatusBadgeVariant(order.status)}
+                          className="w-fit flex items-center"
+                        >
+                          {getStatusIcon(order.status)}
+                          {order.status}
+                        </Badge>
+                        {order.status === 'pending' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleCancelOrder(order.id)}
+                            className="text-destructive border-destructive hover:bg-destructive/10"
+                          >
+                            Cancel Order
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-0">
@@ -153,9 +262,9 @@ const OrdersPage = () => {
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {order.items.map((item, idx) => (
+                                {order.items && order.items.map((item, idx) => (
                                   <TableRow key={`${order.id}-${idx}`}>
-                                    <TableCell className="font-medium">{item.name}</TableCell>
+                                    <TableCell className="font-medium">{item.product_name}</TableCell>
                                     <TableCell>{item.quantity}</TableCell>
                                     <TableCell>${item.price.toFixed(2)}</TableCell>
                                   </TableRow>
@@ -166,11 +275,11 @@ const OrdersPage = () => {
                           <div className="p-6 border-t">
                             <div className="mb-4 space-y-2">
                               <h4 className="font-semibold">Shipping Address</h4>
-                              <p>{order.shippingAddress.street}</p>
+                              <p>{order.shipping_address?.street}</p>
                               <p>
-                                {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zipCode}
+                                {order.shipping_address?.city}, {order.shipping_address?.state} {order.shipping_address?.zipCode}
                               </p>
-                              <p>{order.shippingAddress.country}</p>
+                              <p>{order.shipping_address?.country}</p>
                             </div>
                             <div className="flex justify-between pt-4 font-semibold border-t">
                               <span>Total</span>

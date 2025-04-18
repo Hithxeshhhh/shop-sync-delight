@@ -1,22 +1,33 @@
-
-import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
-import { Label } from '../../components/ui/label';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { AlertBox } from "../../components/ui/alert-box";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { useToast } from "../../components/ui/use-toast";
+import { useAuth } from "../../contexts/AuthContext";
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [isAttemptingAdminLogin, setIsAttemptingAdminLogin] = useState(false);
   
-  const { login } = useAuth();
+  const { login, resendVerificationEmail } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
+  
+  // Check if user is trying to use admin credentials
+  useEffect(() => {
+    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
+    setIsAttemptingAdminLogin(email === adminEmail);
+  }, [email]);
   
   // Get redirect path from location state or default to home
   const from = location.state?.from?.pathname || '/';
@@ -25,14 +36,76 @@ const Login = () => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+    setNeedsVerification(false);
     
     try {
       await login(email, password);
-      // Redirect to the page user was trying to access, or home
-      navigate(from, { replace: true });
-    } catch (err) {
-      setError('Invalid email or password');
+      // The navigation to home page is handled in the AuthContext after successful login
+      toast({
+        title: "Success",
+        description: "You have been logged in successfully.",
+      });
+    } catch (err: any) {
+      console.error('Login error:', err);
+      
+      // Check if the error is related to email verification
+      if (err.message?.includes('Email not confirmed') || 
+          err.message?.includes('not verified') || 
+          err.message?.includes('Please verify your email')) {
+        setNeedsVerification(true);
+      } else if (isAttemptingAdminLogin) {
+        // Special messaging for admin login
+        setError('Admin password incorrect. Please check your credentials.');
+      } else {
+        setError(err.message || 'Invalid email or password');
+      }
+      
       setIsLoading(false);
+    }
+  };
+  
+  const handleUseAdmin = () => {
+    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
+    const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD;
+    
+    if (adminEmail && adminPassword) {
+      setEmail(adminEmail);
+      setPassword(adminPassword);
+    } else {
+      toast({
+        title: "Error",
+        description: "Admin credentials not configured in environment variables",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleResendVerification = async () => {
+    if (!email) {
+      toast({
+        title: "Error",
+        description: "Please enter your email address",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsResendingEmail(true);
+    
+    try {
+      await resendVerificationEmail(email);
+      toast({
+        title: "Verification Email Sent",
+        description: "We've sent a new verification email to your inbox.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to send verification email",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResendingEmail(false);
     }
   };
   
@@ -54,6 +127,22 @@ const Login = () => {
                   <AlertCircle className="h-4 w-4" />
                   <p>{error}</p>
                 </div>
+              )}
+              
+              {needsVerification && (
+                <AlertBox variant="warning" title="Email Verification Required">
+                  <p>Please verify your email address before logging in.</p>
+                  <p className="mt-2">Check your inbox for the verification link or click below to resend it.</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleResendVerification}
+                    disabled={isResendingEmail}
+                    className="mt-2"
+                  >
+                    {isResendingEmail ? 'Sending...' : 'Resend Verification Email'}
+                  </Button>
+                </AlertBox>
               )}
               
               <div className="space-y-2">
@@ -85,10 +174,23 @@ const Login = () => {
                 />
               </div>
               
-              <div className="text-sm text-muted-foreground">
-                <p>Demo Accounts:</p>
-                <p>Admin: admin@example.com / admin123</p>
-                <p>User: user@example.com / password</p>
+              <div className="flex flex-col space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  <p>Demo Accounts:</p>
+                  <p>User: user@example.com / password</p>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={handleUseAdmin}
+                  >
+                    Use Admin
+                  </Button>
+                </div>
               </div>
             </CardContent>
             

@@ -1,12 +1,13 @@
-
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card';
-import { Label } from '../../components/ui/label';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { AlertBox } from "../../components/ui/alert-box";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { useToast } from "../../components/ui/use-toast";
+import { useAuth } from "../../contexts/AuthContext";
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -15,9 +16,28 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [countdown, setCountdown] = useState(5); // 5 second countdown
   
   const { register } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  useEffect(() => {
+    let timer: number;
+    
+    if (isRegistered && countdown > 0) {
+      timer = window.setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+    } else if (isRegistered && countdown === 0) {
+      navigate('/login');
+    }
+    
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isRegistered, countdown, navigate]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,12 +52,55 @@ const Register = () => {
     
     try {
       await register(name, email, password);
-      navigate('/');
-    } catch (err) {
-      setError('Registration failed. Please try again.');
+      
+      setIsRegistered(true);
+      setIsLoading(false);
+      
+      // Show toast notification
+      toast({
+        title: "Registration Successful",
+        description: "Your account has been created. Please check your email for verification.",
+      });
+      
+    } catch (err: any) {
+      setError(err.message || 'Registration failed. Please try again.');
       setIsLoading(false);
     }
   };
+  
+  if (isRegistered) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4">
+        <div className="w-full max-w-md">
+          <Card>
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-2xl font-bold text-center">Registration Successful</CardTitle>
+            </CardHeader>
+            
+            <CardContent className="space-y-4">
+              <AlertBox variant="success" title="Email Verification Required">
+                <p>We've sent a confirmation email to <strong>{email}</strong>.</p>
+                <p className="mt-2">Please check your inbox and click the verification link to activate your account.</p>
+              </AlertBox>
+              
+              <div className="text-center mt-4">
+                <p>Redirecting to login page in {countdown} seconds...</p>
+              </div>
+            </CardContent>
+            
+            <CardFooter className="flex justify-center">
+              <Button 
+                onClick={() => navigate('/login')}
+                className="w-full"
+              >
+                Go to Login
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] px-4">

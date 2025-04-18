@@ -1,14 +1,15 @@
+import { ReactNode } from "react";
+import { Link, Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
-import { ReactNode } from 'react';
-import { Link, useLocation, Navigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
 import { 
   LayoutDashboard, 
   Package, 
   ShoppingCart, 
   Users, 
   Settings, 
-  LogOut 
+  LogOut,
+  UserPlus
 } from 'lucide-react';
 
 type AdminLayoutProps = {
@@ -44,6 +45,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       name: 'Customers',
       href: '/admin/customers',
       icon: <Users className="h-5 w-5" />
+    },
+    {
+      name: 'Admin Users',
+      href: '/admin/users',
+      icon: <UserPlus className="h-5 w-5" />
     },
     {
       name: 'Settings',

@@ -59,6 +59,21 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Supabase (Authentication & Database)
+
+## Supabase Setup
+
+This project uses Supabase for authentication and database functionality. To set it up:
+
+1. Create a Supabase account at [supabase.com](https://supabase.com) if you don't have one
+2. Create a new Supabase project
+3. Get your Supabase URL and anon key from the project settings > API section
+4. Copy the `.env.example` file to `.env` and fill in your Supabase credentials:
+   ```
+   VITE_SUPABASE_URL=your_supabase_url_here
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+   ```
+5. Enable email/password authentication in the Supabase dashboard (Authentication > Providers)
 
 ## How can I deploy this project?
 

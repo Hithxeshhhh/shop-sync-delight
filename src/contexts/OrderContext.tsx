@@ -1,6 +1,5 @@
-
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { Order } from '../types';
+import React, { ReactNode, createContext, useContext, useEffect, useState } from "react";
+import { Order } from "../types";
 
 type OrderContextType = {
   orders: Order[];

@@ -1,24 +1,24 @@
-
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useCart } from '../../contexts/CartContext';
-import { useAuth } from '../../contexts/AuthContext';
-import { useOrders } from '../../contexts/OrderContext';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Trash2, ArrowLeft, ShoppingBag, AlertCircle, Minus, Plus } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { Label } from '../../components/ui/label';
-import { toast } from '@/components/ui/use-toast';
+import { AlertCircle, ArrowLeft, Loader2, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "../../components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { useAuth } from "../../contexts/AuthContext";
+import { useCart } from "../../contexts/CartContext";
+import { createOrder } from "../../lib/supabase-orders";
+import { Address } from "../../types";
+import { toast } from "@/components/ui/use-toast";
 
 const Cart = () => {
   const { items, updateQuantity, removeFromCart, clearCart, total } = useCart();
   const { user } = useAuth();
-  const { addOrder } = useOrders();
   const navigate = useNavigate();
   
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [address, setAddress] = useState({
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [address, setAddress] = useState<Address>({
     street: '',
     city: '',
     state: '',
@@ -48,7 +48,7 @@ const Cart = () => {
     setAddress(prev => ({ ...prev, [name]: value }));
   };
   
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (!user) return;
     
     // Verify all fields are filled
@@ -62,39 +62,65 @@ const Cart = () => {
       return;
     }
     
-    // Create order object
-    const order = {
-      customerId: user.id,
-      customerName: user.name,
-      customerEmail: user.email,
-      items: items.map(item => ({
-        productId: item.product.id,
-        name: item.product.name,
+    try {
+      setIsSubmitting(true);
+      
+      // Calculate values
+      const subtotal = total;
+      const shippingCost = 0; // Free shipping
+      const tax = subtotal * 0.07; // Example tax rate of 7%
+      const orderTotal = subtotal + tax + shippingCost;
+      
+      // Create order items from cart
+      const orderItems = items.map(item => ({
+        product_id: item.product.id,
+        product_name: item.product.name,
         price: item.product.price,
-        quantity: item.quantity
-      })),
-      total: total,
-      status: 'pending' as const,
-      shippingAddress: address
-    };
-    
-    // Add order
-    addOrder(order);
-    
-    // Clear cart
-    clearCart();
-    
-    // Close dialog
-    setIsCheckoutOpen(false);
-    
-    // Show success message
-    toast({
-      title: "Order Placed",
-      description: "Your order has been successfully placed!",
-    });
-    
-    // Redirect to home
-    navigate('/');
+        quantity: item.quantity,
+        subtotal: item.product.price * item.quantity
+      }));
+      
+      // Create order using Supabase function
+      await createOrder(
+        user.id,
+        'pending',
+        'pending',
+        address,
+        address, // Using same address for billing and shipping
+        'Standard',
+        shippingCost,
+        subtotal,
+        tax,
+        0, // No discount
+        orderTotal,
+        '', // No notes
+        orderItems
+      );
+      
+      // Clear cart
+      clearCart();
+      
+      // Close dialog
+      setIsCheckoutOpen(false);
+      
+      // Show success message
+      toast({
+        title: "Order Placed",
+        description: "Your order has been successfully placed!",
+      });
+      
+      // Redirect to orders page
+      navigate('/orders');
+    } catch (error) {
+      console.error('Error placing order:', error);
+      toast({
+        title: "Order Failed",
+        description: "There was a problem placing your order. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   if (items.length === 0) {
@@ -222,9 +248,13 @@ const Cart = () => {
                 <span>Shipping</span>
                 <span>Free</span>
               </div>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Tax (7%)</span>
+                <span>${(total * 0.07).toFixed(2)}</span>
+              </div>
               <div className="border-t pt-3 font-bold flex justify-between">
                 <span>Total</span>
-                <span>${total.toFixed(2)}</span>
+                <span>${(total + (total * 0.07)).toFixed(2)}</span>
               </div>
             </div>
             
@@ -248,81 +278,93 @@ const Cart = () => {
       
       {/* Checkout Dialog */}
       <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Complete Your Order</DialogTitle>
+            <DialogTitle>Shipping Information</DialogTitle>
             <DialogDescription>
-              Please enter your shipping information to place your order.
+              Enter your shipping address to complete your order.
             </DialogDescription>
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="street">Street Address</Label>
-              <Input 
-                id="street" 
-                name="street" 
-                value={address.street} 
-                onChange={handleAddressChange}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="street" className="text-right">
+                Street Address
+              </Label>
+              <Input
+                id="street"
+                name="street"
                 placeholder="123 Main St"
+                className="col-span-3"
+                value={address.street}
+                onChange={handleAddressChange}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="city">City</Label>
-                <Input 
-                  id="city" 
-                  name="city" 
-                  value={address.city} 
-                  onChange={handleAddressChange}
-                  placeholder="New York"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="state">State</Label>
-                <Input 
-                  id="state" 
-                  name="state" 
-                  value={address.state} 
-                  onChange={handleAddressChange}
-                  placeholder="NY"
-                />
-              </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="city" className="text-right">
+                City
+              </Label>
+              <Input
+                id="city"
+                name="city"
+                placeholder="Cityville"
+                className="col-span-3"
+                value={address.city}
+                onChange={handleAddressChange}
+              />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="zipCode">Zip Code</Label>
-                <Input 
-                  id="zipCode" 
-                  name="zipCode" 
-                  value={address.zipCode} 
-                  onChange={handleAddressChange}
-                  placeholder="10001"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="country">Country</Label>
-                <Input 
-                  id="country" 
-                  name="country" 
-                  value={address.country} 
-                  onChange={handleAddressChange}
-                  placeholder="USA"
-                />
-              </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="state" className="text-right">
+                State/Province
+              </Label>
+              <Input
+                id="state"
+                name="state"
+                placeholder="State"
+                className="col-span-3"
+                value={address.state}
+                onChange={handleAddressChange}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="zipCode" className="text-right">
+                Zip/Postal Code
+              </Label>
+              <Input
+                id="zipCode"
+                name="zipCode"
+                placeholder="12345"
+                className="col-span-3"
+                value={address.zipCode}
+                onChange={handleAddressChange}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="country" className="text-right">
+                Country
+              </Label>
+              <Input
+                id="country"
+                name="country"
+                placeholder="Country"
+                className="col-span-3"
+                value={address.country}
+                onChange={handleAddressChange}
+              />
             </div>
           </div>
           
           <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setIsCheckoutOpen(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setIsCheckoutOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" onClick={handlePlaceOrder}>
-              Place Order
+            <Button 
+              onClick={handlePlaceOrder} 
+              disabled={isSubmitting}
+              className="gap-2"
+            >
+              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isSubmitting ? 'Processing...' : 'Place Order'}
             </Button>
           </DialogFooter>
         </DialogContent>

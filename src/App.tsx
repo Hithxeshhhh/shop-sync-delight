@@ -1,80 +1,103 @@
-
-import { Routes, Route } from "react-router-dom";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-
-// Contexts
-import { AuthProvider } from "./contexts/AuthContext";
-import { ProductProvider } from "./contexts/ProductContext";
-import { CartProvider } from "./contexts/CartContext";
-import { OrderProvider } from "./contexts/OrderContext";
-
-// Layout
-import Navbar from "./components/layout/Navbar";
-import Footer from "./components/layout/Footer";
-
-// Customer Pages
-import Home from "./pages/customer/Home";
-import ProductsPage from "./pages/customer/ProductsPage";
-import ProductDetail from "./pages/customer/ProductDetail";
 import Cart from "./pages/customer/Cart";
-import OrdersPage from "./pages/customer/Orders";
-
-// Auth Pages
-import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
-
-// Admin Pages
 import Dashboard from "./pages/admin/Dashboard";
-import ProductsManagement from "./pages/admin/ProductsManagement";
-import OrdersManagement from "./pages/admin/OrdersManagement";
+import Footer from "./components/layout/Footer";
+import Home from "./pages/customer/Home";
+import Login from "./pages/auth/Login";
+import Navbar from "./components/layout/Navbar";
 import NotFound from "./pages/NotFound";
+import OrdersManagement from "./pages/admin/OrdersManagement";
+import OrdersPage from "./pages/customer/Orders";
+import ProductDetail from "./pages/customer/ProductDetail";
+import ProductsManagement from "./pages/admin/ProductsManagement";
+import ProductsPage from "./pages/customer/ProductsPage";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Register from "./pages/auth/Register";
+import UsersManagement from "./pages/admin/UsersManagement";
+import { Route, Routes } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import { CartProvider } from "./contexts/CartContext";
+import { ProductProvider } from "./contexts/ProductContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
 
-const queryClient = new QueryClient();
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <ProductProvider>
+const App = () => {
+  return (
+    <>
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+        <AuthProvider>
           <CartProvider>
-            <OrderProvider>
+            <ProductProvider>
               <div className="flex flex-col min-h-screen">
                 <Navbar />
                 <main className="flex-grow">
                   <Routes>
-                    {/* Customer Routes */}
+                    {/* Public Routes */}
                     <Route path="/" element={<Home />} />
                     <Route path="/products" element={<ProductsPage />} />
                     <Route path="/products/:id" element={<ProductDetail />} />
                     <Route path="/cart" element={<Cart />} />
-                    <Route path="/orders" element={<OrdersPage />} />
-
-                    {/* Auth Routes */}
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
+                    
+                    {/* Protected Customer Routes */}
+                    <Route 
+                      path="/orders" 
+                      element={
+                        <ProtectedRoute>
+                          <OrdersPage />
+                        </ProtectedRoute>
+                      } 
+                    />
 
-                    {/* Admin Routes */}
-                    <Route path="/admin" element={<Dashboard />} />
-                    <Route path="/admin/products" element={<ProductsManagement />} />
-                    <Route path="/admin/orders" element={<OrdersManagement />} />
+                    {/* Protected Admin Routes */}
+                    <Route 
+                      path="/admin" 
+                      element={
+                        <ProtectedRoute requireAdmin>
+                          <Dashboard />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/admin/products" 
+                      element={
+                        <ProtectedRoute requireAdmin>
+                          <ProductsManagement />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/admin/orders" 
+                      element={
+                        <ProtectedRoute requireAdmin>
+                          <OrdersManagement />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/admin/users" 
+                      element={
+                        <ProtectedRoute requireAdmin>
+                          <UsersManagement />
+                        </ProtectedRoute>
+                      } 
+                    />
 
-                    {/* Not Found */}
+                    {/* 404 */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </main>
                 <Footer />
               </div>
               <Toaster />
-              <Sonner />
-            </OrderProvider>
+            </ProductProvider>
           </CartProvider>
-        </ProductProvider>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+        </AuthProvider>
+      </ThemeProvider>
+      <Sonner />
+    </>
+  );
+};
 
 export default App;
